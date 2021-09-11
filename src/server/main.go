@@ -7,31 +7,53 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"encoding/json"
 )
 
-type counters struct {
-	sync.Mutex
-	view  int
-	click int
+
+type Counters struct {
+    Views  int //field name that starts with capital letter are public, so the json package can access it
+    Clicks int 
 }
 
+type EventCounter struct {
+    sync.Mutex
+    counters map[string]Counters
+}
+func NewEventCounter() *EventCounter {
+	e := new(EventCounter)
+	e.counters = map[string]Counters {}
+	return e
+}	
 var (
-	c = counters{}
-
 	content = []string{"sports", "entertainment", "business", "education"}
+	stats = NewEventCounter()
 )
+
+func (e * EventCounter) addView(key string) {
+	e.Lock()
+	v := e.counters[key]
+	v.Views++
+	e.counters[key] = v
+	defer e.Unlock()
+}
+
+func (e * EventCounter) addClick(key string) {
+	e.Lock()
+	v := e.counters[key]
+	v.Clicks++
+	e.counters[key] = v
+	defer e.Unlock()
+}
 
 func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Welcome to EQ Works 😎")
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	data := content[rand.Intn(len(content))]
-
-	c.Lock()
-	c.view++
-	c.Unlock()
-
+	fmt.Println(r)
+	event_time := fmt.Sprintf("%s:%s",content[rand.Intn(len(content))],time.Now().Format("2006-01-02 15:04"))//why this date is used for formatting though? ask the Go devs XD
+	stats.addView(event_time)
 	err := processRequest(r)
 	if err != nil {
 		fmt.Println(err)
@@ -41,7 +63,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// simulate random click call
 	if rand.Intn(100) < 50 {
-		processClick(data)
+		processClick(event_time)
 	}
 }
 
@@ -50,19 +72,15 @@ func processRequest(r *http.Request) error {
 	return nil
 }
 
-func processClick(data string) error {
-	c.Lock()
-	c.click++
-	c.Unlock()
-
+func processClick(event_time string) error {
+	stats.addClick(event_time)
 	return nil
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	if !isAllowed() {
-		w.WriteHeader(429)
-		return
-	}
+	statsJS, err := json.Marshal(stats.counters)
+	fmt.Println(err)
+	fmt.Fprint(w, string(statsJS))
 }
 
 func isAllowed() bool {
@@ -72,11 +90,14 @@ func isAllowed() bool {
 func uploadCounters() error {
 	return nil
 }
-
+func init() {
+	
+  }
 func main() {
 	http.HandleFunc("/", welcomeHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/stats/", statsHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
+	
 }
