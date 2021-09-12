@@ -33,18 +33,18 @@ var (
 
 func (e * EventCounter) addView(key string) {
 	e.Lock()
+	defer e.Unlock()
 	v := e.counters[key]
 	v.Views++
 	e.counters[key] = v
-	defer e.Unlock()
 }
 
 func (e * EventCounter) addClick(key string) {
 	e.Lock()
+	defer e.Unlock()
 	v := e.counters[key]
 	v.Clicks++
 	e.counters[key] = v
-	defer e.Unlock()
 }
 
 func welcomeHandler(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +101,7 @@ func uploadCounters(second int)  error {
 			log.Println("Problem writing to file: ", err)
 			return err
 		}
-		
+
         fmt.Println("stats uploaded to /stats.json on ", tick)
     }
 	return nil
