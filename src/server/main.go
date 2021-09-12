@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 	"encoding/json"
+	"io/ioutil"
 )
 
 
@@ -79,7 +80,7 @@ func processClick(event_time string) error {
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
 	statsJS, err := json.Marshal(stats.counters)
-	fmt.Println(err)
+	if err != nil{ fmt.Println(err)}
 	fmt.Fprint(w, string(statsJS))
 }
 
@@ -87,17 +88,31 @@ func isAllowed() bool {
 	return true
 }
 
-func uploadCounters() error {
+func uploadCounters(second int)  error {
+	for tick := range time.Tick(time.Duration(second) * time.Second) {
+		jsonString, err := json.Marshal(stats.counters) 
+		if err != nil {
+			log.Println("Problem marshalling json: ",err) 
+			return err
+		}
+		
+		err = ioutil.WriteFile("stats.json", jsonString, 0644)
+		if err != nil {
+			log.Println("Problem writing to file: ", err)
+			return err
+		}
+		
+        fmt.Println("stats uploaded to /stats.json on ", tick)
+    }
 	return nil
 }
-func init() {
-	
-  }
+
 func main() {
 	http.HandleFunc("/", welcomeHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/stats/", statsHandler)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
-	
+	go uploadCounters(5)
+	go log.Fatal(http.ListenAndServe(":8080", nil))
+
 }
