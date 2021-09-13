@@ -9,8 +9,13 @@ import (
 	"time"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 )
 
+type RateLimiter struct{
+	sync.Mutex
+	pool int
+}
 
 type Counters struct {
     Views  int //field name that starts with capital letter are public, so the json package can access it
@@ -29,7 +34,22 @@ func NewEventCounter() *EventCounter {
 var (
 	content = []string{"sports", "entertainment", "business", "education"}
 	stats = NewEventCounter()
+	statsReqPool RateLimiter
 )
+
+func (r * RateLimiter) take() int{
+	r.Lock()
+	defer r.Unlock()
+	r.pool--
+	return r.pool
+}
+
+func (r * RateLimiter) reset(limit int){
+	r.Lock()
+	defer r.Unlock()
+	r.pool = limit
+	fmt.Println("reset limit", r.pool)
+}
 
 func (e * EventCounter) addView(key string) {
 	e.Lock()
@@ -79,13 +99,18 @@ func processClick(event_time string) error {
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	statsJS, err := json.Marshal(stats.counters)
-	if err != nil{ fmt.Println(err)}
-	fmt.Fprint(w, string(statsJS))
-}
+	if statsReqPool.take() < 0 {
+		w.WriteHeader(429)
+		return
+	}
+	jsonFile, err := os.Open("stats.json")
+	if err != nil {log.Println("Problem opening local json file:",err)}
+	defer jsonFile.Close()
 
-func isAllowed() bool {
-	return true
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	if err != nil {log.Println("Problem reading json file:",err)}
+
+	fmt.Fprint(w, string(byteValue))
 }
 
 func uploadCounters(second int)  error {
@@ -107,12 +132,23 @@ func uploadCounters(second int)  error {
 	return nil
 }
 
+func statsLimiterReset(size int, second int)  {
+	for _ = range time.Tick(time.Duration(second) * time.Second) {
+		statsReqPool.reset(size)
+	}
+}
+
 func main() {
 	http.HandleFunc("/", welcomeHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/stats/", statsHandler)
 
 	go uploadCounters(5)
-	go log.Fatal(http.ListenAndServe(":8080", nil))
+
+	go statsLimiterReset(5 , 5)//(size of pool in integer, reset period in seconds) it periodically resets the int tracking number of requests to /stats/
+
+	if err := http.ListenAndServe(":8080", nil); nil != err {
+        log.Fatal("problem with web server:", err)
+    }
 
 }
