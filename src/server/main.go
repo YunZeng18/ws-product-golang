@@ -71,7 +71,6 @@ func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r)
 	event_time := fmt.Sprintf("%s:%s",content[rand.Intn(len(content))],time.Now().Format("2006-01-02 15:04"))//why this date is used for formatting though? ask the Go devs XD
 	stats.addView(event_time)
 	err := processRequest(r)
@@ -93,7 +92,8 @@ func processRequest(r *http.Request) error {
 }
 
 func processClick(event_time string) error {
-	stats.addClick(event_time)
+	err := stats.addClick(event_time)
+	if err != nil{log.Println("Problem prcessing click:", err)}
 	return nil
 }
 
@@ -130,6 +130,7 @@ func uploadCounters(second int)  error {
 }
 
 func statsLimiterReset(size int, second int)  {
+	statsReqPool.reset(size)
 	for _ = range time.Tick(time.Duration(second) * time.Second) {
 		statsReqPool.reset(size)
 	}
@@ -142,7 +143,7 @@ func main() {
 
 	go uploadCounters(5)
 
-	go statsLimiterReset(5 , 5)//(size of pool in integer, reset period in seconds) it periodically resets the int tracking number of requests to /stats/
+	go statsLimiterReset(5 , 5)//(size of pool in integer, reset period in seconds) it periodically resets the integer tracking number of requests to /stats/
 
 	if err := http.ListenAndServe(":8080", nil); nil != err {
         log.Fatal("problem with web server:", err)
