@@ -71,14 +71,16 @@ func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	event_time := fmt.Sprintf("%s:%s",content[rand.Intn(len(content))],time.Now().Format("2006-01-02 15:04"))//why this date is used for formatting though? ask the Go devs XD
-	stats.addView(event_time)
+
 	err := processRequest(r)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(400)
 		return
 	}
+	event_time := fmt.Sprintf("%s:%s",content[rand.Intn(len(content))],time.Now().Format("2006-01-02 15:04"))//why this date is used for formatting though? ask the Go devs XD
+	fmt.Fprint(w, event_time)
+	stats.addView(event_time)
 
 	// simulate random click call
 	if rand.Intn(100) < 50 {
@@ -86,14 +88,13 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func processRequest(r *http.Request) error {
+func processRequest(r *http.Request)  error{
 	time.Sleep(time.Duration(rand.Int31n(50)) * time.Millisecond)
 	return nil
 }
 
 func processClick(event_time string) error {
-	err := stats.addClick(event_time)
-	if err != nil{log.Println("Problem prcessing click:", err)}
+	stats.addClick(event_time)
 	return nil
 }
 
