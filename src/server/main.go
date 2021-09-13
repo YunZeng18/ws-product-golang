@@ -48,7 +48,6 @@ func (r * RateLimiter) reset(limit int){
 	r.Lock()
 	defer r.Unlock()
 	r.pool = limit
-	fmt.Println("reset limit", r.pool)
 }
 
 func (e * EventCounter) addView(key string) {
@@ -114,7 +113,7 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func uploadCounters(second int)  error {
-	for tick := range time.Tick(time.Duration(second) * time.Second) {
+	for _ = range time.Tick(time.Duration(second) * time.Second) {
 		jsonString, err := json.Marshal(stats.counters) 
 		if err != nil {
 			log.Println("Problem marshalling json: ",err) 
@@ -126,8 +125,6 @@ func uploadCounters(second int)  error {
 			log.Println("Problem writing to file: ", err)
 			return err
 		}
-
-        fmt.Println("stats uploaded to /stats.json on ", tick)
     }
 	return nil
 }
