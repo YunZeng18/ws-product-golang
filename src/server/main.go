@@ -40,7 +40,8 @@ var (
 func (r * RateLimiter) take() int{
 	r.Lock()
 	defer r.Unlock()
-	r.pool--
+	if r.pool >= 0 { r.pool-- }
+	
 	return r.pool
 }
 
